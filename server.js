@@ -13,7 +13,7 @@ app.use(bodyParser.json())
 
 // ── CONFIG — preencha com seus dados ──
 const BOT_TOKEN  = process.env.BOT_TOKEN   // Token do BotFather — coloca no Railway
-const ADMIN_ID   = '8728278702'            // Seu chat_id já configurado
+const ADMIN_ID   = '7609371552'            // Seu chat_id já configurado
 const PORT       = process.env.PORT || 3000
 const API_SECRET = process.env.API_SECRET  // Senha secreta — coloca no Railway
 // ──────────────────────────────────────
