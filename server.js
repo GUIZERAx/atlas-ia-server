@@ -80,7 +80,8 @@ function formatarSinal(dados) {
             return emoji + ' <b>' + n + '</b>'
         }).join('  ')
 
-        return '🚀 <b>APOSTE AGORA!</b>\n\n' +
+        return (dados.mesa ? dados.mesa + '\n' : '') +
+               '🚀 <b>APOSTE AGORA!</b>\n\n' +
                '🎯 <b>' + nome + '</b>\n' +
                '🔑 Gatilho: <code>' + gatilho + '</code>\n\n' +
                '💰 <b>Números:</b>\n' + bolinhas + '\n\n' +
@@ -88,24 +89,28 @@ function formatarSinal(dados) {
     }
 
     if (fase === 'contando') {
-        return '🟠 <b>ATENÇÃO — Gatilho detectado!</b>\n\n' +
+        return (dados.mesa ? dados.mesa + '\n' : '') +
+               '🟠 <b>ATENÇÃO — Gatilho detectado!</b>\n\n' +
                '🎯 <b>' + nome + '</b>\n' +
                '🔑 Gatilho: <code>' + gatilho + '</code>\n\n' +
                '⏳ Aguardando confirmação para entrar...'
     }
 
     if (fase === 'ganhou') {
-        return '✅ <b>GANHOU!</b>  Número: <b>' + (dados.numero || '') + '</b>\n' +
+        return (dados.mesa ? dados.mesa + '\n' : '') +
+               '✅ <b>GANHOU!</b>  Número: <b>' + (dados.numero || '') + '</b>\n' +
                '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
     }
 
     if (fase === 'perdeu') {
-        return '❌ <b>PERDEU!</b>  Número: <b>' + (dados.numero || '') + '</b>\n' +
+        return (dados.mesa ? dados.mesa + '\n' : '') +
+               '❌ <b>PERDEU!</b>  Número: <b>' + (dados.numero || '') + '</b>\n' +
                '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
     }
 
     if (fase === 'gale') {
-        return '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: <b>' + (dados.numero||'') + '</b>\n' +
+        return (dados.mesa ? dados.mesa + '\n' : '') +
+               '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: <b>' + (dados.numero||'') + '</b>\n' +
                'Mantendo aposta nos mesmos números'
     }
 
