@@ -60,6 +60,61 @@ async function broadcast(texto) {
     }
 }
 
+// ── Roda europeia para agrupar vizinhos ──
+var RODA = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26]
+var VERMELHOS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+
+function bolinha(n) {
+    var num = parseInt(n)
+    var e = num === 0 ? '🟢' : VERMELHOS.indexOf(num) !== -1 ? '🔴' : '⚫'
+    return e + '<b>' + n + '</b>'
+}
+
+function vizinhosRoda(num, nViz) {
+    var idx = RODA.indexOf(parseInt(num))
+    if (idx === -1) return [num]
+    var g = []
+    for (var d = -nViz; d <= nViz; d++) {
+        g.push(String(RODA[(idx + d + RODA.length) % RODA.length]))
+    }
+    return g
+}
+
+// Detecta o dica de setor para estratégias setoriais
+function dicaSetor(nome) {
+    var n = (nome||'').toUpperCase()
+    if (n.indexOf('TQ→V') !== -1 || n.indexOf('TQ-V') !== -1) return '👆 Clique <b>VOISINS</b> na race track'
+    if (n.indexOf('VQ→T') !== -1 || n.indexOf('VQ-T') !== -1) return '👆 Clique <b>TIER</b> na race track'
+    if (n.indexOf('ZERO DOM') !== -1) return '👆 Clique <b>JEU ZERO</b> na race track'
+    if (n.indexOf('ORPH') !== -1) return '👆 Clique <b>ORPHELINS</b> na race track'
+    return ''
+}
+
+// Agrupa números em grupos de vizinhos na roda
+function agruparNumerosRoda(numeros) {
+    var usados = {}
+    var grupos = []
+    // Ordena por posição na roda
+    var comIdx = numeros.map(function(n) {
+        return { n: n, idx: RODA.indexOf(parseInt(n)) }
+    }).filter(function(x) { return x.idx !== -1 })
+    .sort(function(a,b) { return a.idx - b.idx })
+
+    comIdx.forEach(function(x) {
+        if (usados[x.n]) return
+        // Verifica se já coberto por grupo existente
+        var coberto = grupos.some(function(g) {
+            return g.indexOf(x.n) !== -1
+        })
+        if (!coberto) {
+            var viz = vizinhosRoda(x.n, 1) // centro + 1 cada lado
+            grupos.push(viz)
+            viz.forEach(function(v) { usados[v] = true })
+        }
+    })
+    return grupos
+}
+
 // ── Formatar mensagem de sinal ──
 function formatarSinal(dados) {
     var fase     = dados.fase     || ''
@@ -71,29 +126,29 @@ function formatarSinal(dados) {
     var total    = acertos + erros
     var taxa     = total > 0 ? Math.round(acertos / total * 100) : 0
 
-    var VERMELHOS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
-
     if (fase === 'apostando') {
-        var bolinhas = numeros.map(function(n) {
-            var num = parseInt(n)
-            var emoji = num === 0 ? '🟢' : VERMELHOS.indexOf(num) !== -1 ? '🔴' : '⚫'
-            return emoji + ' <b>' + n + '</b>'
-        }).join('  ')
+        // Agrupa números em grupos de 3 (vizinhos na roda)
+        var grupos = agruparNumerosRoda(numeros)
+        var linhasGrupos = grupos.map(function(g) {
+            return g.map(bolinha).join(' · ')
+        }).join('\n')
+
+        var dica = dicaSetor(nome)
 
         return (dados.mesa ? dados.mesa + '\n' : '') +
                '🚀 <b>APOSTE AGORA!</b>\n\n' +
                '🎯 <b>' + nome + '</b>\n' +
                '🔑 Gatilho: <code>' + gatilho + '</code>\n\n' +
-               '💰 <b>Números:</b>\n' + bolinhas + '\n\n' +
-               '📊 Sessão: ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
+               (dica ? dica + '\n\n' : '') +
+               '💰 <b>Entrada:</b>\n' + linhasGrupos + '\n\n' +
+               '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
     }
 
     if (fase === 'contando') {
         return (dados.mesa ? dados.mesa + '\n' : '') +
-               '🟠 <b>ATENÇÃO — Gatilho detectado!</b>\n\n' +
+               '🟠 <b>Gatilho detectado!</b>\n' +
                '🎯 <b>' + nome + '</b>\n' +
-               '🔑 Gatilho: <code>' + gatilho + '</code>\n\n' +
-               '⏳ Aguardando confirmação para entrar...'
+               '🔑 <code>' + gatilho + '</code> — Próximo número = ENTRADA'
     }
 
     if (fase === 'ganhou') {
@@ -111,7 +166,7 @@ function formatarSinal(dados) {
     if (fase === 'gale') {
         return (dados.mesa ? dados.mesa + '\n' : '') +
                '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: <b>' + (dados.numero||'') + '</b>\n' +
-               'Mantendo aposta nos mesmos números'
+               'Mantendo aposta'
     }
 
     return ''
