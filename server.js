@@ -91,25 +91,44 @@ function dicaSetor(nome) {
 }
 
 // Agrupa números em grupos de vizinhos na roda
+// Lógica: igual ao display da extensão — centro + vizinhos que TAMBÉM estão na entrada
 function agruparNumerosRoda(numeros) {
-    var usados = {}
-    var grupos = []
+    var entradaSet = {}
+    numeros.forEach(function(n) { entradaSet[String(n)] = true })
+
     // Ordena por posição na roda
     var comIdx = numeros.map(function(n) {
-        return { n: n, idx: RODA.indexOf(parseInt(n)) }
+        return { n: String(n), idx: RODA.indexOf(parseInt(n)) }
     }).filter(function(x) { return x.idx !== -1 })
-    .sort(function(a,b) { return a.idx - b.idx })
+    .sort(function(a, b) { return a.idx - b.idx })
+
+    var usados = {}
+    var grupos = []
 
     comIdx.forEach(function(x) {
         if (usados[x.n]) return
-        // Verifica se já coberto por grupo existente
-        var coberto = grupos.some(function(g) {
-            return g.indexOf(x.n) !== -1
-        })
-        if (!coberto) {
-            var viz = vizinhosRoda(x.n, 1) // centro + 1 cada lado
-            grupos.push(viz)
-            viz.forEach(function(v) { usados[v] = true })
+        var idx = x.idx
+        var esq = String(RODA[(idx - 1 + RODA.length) % RODA.length])
+        var dir = String(RODA[(idx + 1) % RODA.length])
+        var esqNaEntrada = entradaSet[esq] && !usados[esq]
+        var dirNaEntrada = entradaSet[dir] && !usados[dir]
+
+        if (esqNaEntrada && dirNaEntrada) {
+            // grupo de 3: esq · centro · dir
+            grupos.push([esq, x.n, dir])
+            usados[esq] = true; usados[x.n] = true; usados[dir] = true
+        } else if (esqNaEntrada) {
+            // grupo de 2: esq · centro
+            grupos.push([esq, x.n])
+            usados[esq] = true; usados[x.n] = true
+        } else if (dirNaEntrada) {
+            // grupo de 2: centro · dir
+            grupos.push([x.n, dir])
+            usados[x.n] = true; usados[dir] = true
+        } else {
+            // isolado
+            grupos.push([x.n])
+            usados[x.n] = true
         }
     })
     return grupos
@@ -117,56 +136,95 @@ function agruparNumerosRoda(numeros) {
 
 // ── Formatar mensagem de sinal ──
 function formatarSinal(dados) {
-    var fase     = dados.fase     || ''
-    var nome     = dados.nome     || ''
-    var gatilho  = dados.gatilho  || ''
-    var numeros  = dados.numeros  || []
-    var acertos  = dados.acertos  || 0
-    var erros    = dados.erros    || 0
-    var total    = acertos + erros
-    var taxa     = total > 0 ? Math.round(acertos / total * 100) : 0
+    var fase    = dados.fase    || ''
+    var nome    = dados.nome    || ''
+    var gatilho = dados.gatilho || ''
+    var numeros = dados.numeros || []
+    var acertos = dados.acertos || 0
+    var erros   = dados.erros   || 0
+    var total   = acertos + erros
+    var taxa    = total > 0 ? Math.round(acertos / total * 100) : 0
+    var mesa    = dados.mesa ? dados.mesa + '\n' : ''
+
+    // Linha de placar reutilizável
+    function placar() {
+        return '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
+    }
+
+    // Cor do número na roda
+    function corNum(n) {
+        var num = parseInt(n)
+        if (num === 0) return '🟢'
+        return VERMELHOS.indexOf(num) !== -1 ? '🔴' : '⚫'
+    }
 
     if (fase === 'apostando') {
-        // Agrupa números em grupos de 3 (vizinhos na roda)
         var grupos = agruparNumerosRoda(numeros)
+
+        // Monta linhas: cada grupo numa linha, números separados por · com cor
         var linhasGrupos = grupos.map(function(g) {
-            return g.map(bolinha).join(' · ')
+            return g.map(function(n) {
+                return corNum(n) + '<b>' + n + '</b>'
+            }).join(' · ')
         }).join('\n')
+
+        // Total de números sem repetição
+        var totalNums = numeros.length
 
         var dica = dicaSetor(nome)
 
-        return (dados.mesa ? dados.mesa + '\n' : '') +
-               '🚀 <b>APOSTE AGORA!</b>\n\n' +
-               '🎯 <b>' + nome + '</b>\n' +
-               '🔑 Gatilho: <code>' + gatilho + '</code>\n\n' +
-               (dica ? dica + '\n\n' : '') +
-               '💰 <b>Entrada:</b>\n' + linhasGrupos + '\n\n' +
-               '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
+        // Detecta tipo de estratégia para cor/emoji
+        var nUp = nome.toUpperCase()
+        var tag = ''
+        if (nUp.indexOf('ELITE') !== -1)     tag = '[🔥 ELITE 2X]'
+        else if (nUp.indexOf('QUARTA') !== -1) tag = '[🌀 QUARTA DIM]'
+        else if (nUp.indexOf('RMULA') !== -1)  tag = '[⚡ FÓRMULA 5X]'
+        else if (nUp.indexOf('BLACK') !== -1)  tag = '[⬛ BLACK]'
+        else if (nUp.indexOf('QUADRANTE') !== -1) tag = '[◻️ QUADRANTES]'
+        else if (nUp.indexOf('SINAL') !== -1)  tag = '[🔵 SINAL]'
+        else if (nUp.indexOf('INVERT') !== -1) tag = '[🔄 INVERTIDOS]'
+        else if (nUp.indexOf('FIXO') !== -1)   tag = '[📌 FIXOS]'
+
+        return mesa +
+            '🚀 <b>APOSTE AGORA!</b> ' + tag + '\n' +
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
+            '🎯 ' + nome + '\n' +
+            '🔑 Gatilho: <code>' + gatilho + '</code>  |  💰 ' + totalNums + ' números\n' +
+            (dica ? '👆 ' + dica.replace('👆 ', '') + '\n' : '') +
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
+            linhasGrupos + '\n' +
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
+            placar()
     }
 
     if (fase === 'contando') {
-        return (dados.mesa ? dados.mesa + '\n' : '') +
-               '🟠 <b>Gatilho detectado!</b>\n' +
-               '🎯 <b>' + nome + '</b>\n' +
-               '🔑 <code>' + gatilho + '</code> — Próximo número = ENTRADA'
+        return mesa +
+            '🟠 <b>GATILHO DETECTADO!</b>\n' +
+            '━━━━━━━━━━━━━━━━━━━━━\n' +
+            '🎯 ' + nome + '\n' +
+            '🔑 Disparou: <code>' + gatilho + '</code>\n' +
+            '⏳ Aguardando confirmação...'
     }
 
     if (fase === 'ganhou') {
-        return (dados.mesa ? dados.mesa + '\n' : '') +
-               '✅ <b>GANHOU!</b>  Número: <b>' + (dados.numero || '') + '</b>\n' +
-               '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
+        var numBolinha = corNum(dados.numero || 0) + '<b>' + (dados.numero || '') + '</b>'
+        return mesa +
+            '✅ <b>GANHOU!</b>  Número: ' + numBolinha + '\n' +
+            placar()
     }
 
     if (fase === 'perdeu') {
-        return (dados.mesa ? dados.mesa + '\n' : '') +
-               '❌ <b>PERDEU!</b>  Número: <b>' + (dados.numero || '') + '</b>\n' +
-               '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
+        var numBolinhaP = corNum(dados.numero || 0) + '<b>' + (dados.numero || '') + '</b>'
+        return mesa +
+            '❌ <b>PERDEU!</b>  Número: ' + numBolinhaP + '\n' +
+            placar()
     }
 
     if (fase === 'gale') {
-        return (dados.mesa ? dados.mesa + '\n' : '') +
-               '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: <b>' + (dados.numero||'') + '</b>\n' +
-               'Mantendo aposta'
+        var numBolinhaG = corNum(dados.numero || 0) + '<b>' + (dados.numero || '') + '</b>'
+        return mesa +
+            '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: ' + numBolinhaG + '\n' +
+            '🔁 Mantendo aposta nos mesmos números'
     }
 
     return ''
