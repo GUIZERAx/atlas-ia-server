@@ -135,6 +135,41 @@ function agruparNumerosRoda(numeros) {
 }
 
 // ── Formatar mensagem de sinal ──
+// ── Detecta tipo de estratégia e retorna tag + emoji ──
+function detectarTipo(nome) {
+    var n = (nome || '').toLowerCase()
+        .replace(/[áàãâä]/g,'a').replace(/[éèêë]/g,'e')
+        .replace(/[íìîï]/g,'i').replace(/[óòõôö]/g,'o')
+        .replace(/[úùûü]/g,'u').replace(/[ç]/g,'c')
+
+    // Clássicas
+    if (n.indexOf('elite 2x')     !== -1) return { tag: '[🔥 ELITE 2X]',      emoji: '🔥', tipo: 'classica' }
+    if (n.indexOf('quarta dim')   !== -1 ||
+        n.indexOf('dimensao')     !== -1) return { tag: '[🌀 QUARTA DIM]',     emoji: '🌀', tipo: 'classica' }
+    if (n.indexOf('formula 5x')  !== -1) return { tag: '[⚡ FÓRMULA 5X]',     emoji: '⚡', tipo: 'classica' }
+    if (n.indexOf('padrao black') !== -1 ||
+        (n.indexOf('black') !== -1 && n.indexOf('padrao') !== -1))
+                                          return { tag: '[⬛ PADRÃO BLACK]',   emoji: '⬛', tipo: 'classica' }
+    if (n.indexOf('quadrante')    !== -1) return { tag: '[◻️ QUADRANTES]',     emoji: '◻️', tipo: 'classica' }
+    // Modo Sinais (verde+fora)
+    if (n.indexOf('sinal') !== -1 && n.indexOf(' g') !== -1)
+                                          return { tag: '[🔵 SINAL V+F]',      emoji: '🔵', tipo: 'sinal' }
+    // PDFs
+    if (n.indexOf('invert')       !== -1) return { tag: '[🔄 INVERTIDOS]',     emoji: '🔄', tipo: 'pdf' }
+    if (n.indexOf('fixo')         !== -1) return { tag: '[📌 FIXOS]',          emoji: '📌', tipo: 'pdf' }
+    if (n.indexOf('se chamam')    !== -1) return { tag: '[🧲 SE CHAMAM]',      emoji: '🧲', tipo: 'pdf' }
+    if (n.indexOf('poucas fichas')!== -1) return { tag: '[🎯 POUCAS FICHAS]',  emoji: '🎯', tipo: 'pdf' }
+    if (n.indexOf('gatilho')      !== -1) return { tag: '[⚡ GATILHO]',        emoji: '⚡', tipo: 'pdf' }
+    if (n.indexOf('puxam')        !== -1) return { tag: '[↕️ SE PUXAM]',       emoji: '↕️', tipo: 'pdf' }
+    // Setoriais
+    if (n.indexOf('vq') !== -1 || n.indexOf('tq') !== -1)
+                                          return { tag: '[🔄 SETOR]',          emoji: '🔄', tipo: 'setor' }
+    if (n.indexOf('zero dom')     !== -1) return { tag: '[🟢 ZERO DOM]',       emoji: '🟢', tipo: 'setor' }
+    if (n.indexOf('orph')         !== -1) return { tag: '[👻 ÓRFÃOS]',         emoji: '👻', tipo: 'setor' }
+
+    return { tag: '', emoji: '🎯', tipo: 'outro' }
+}
+
 function formatarSinal(dados) {
     var fase    = dados.fase    || ''
     var nome    = dados.nome    || ''
@@ -145,86 +180,115 @@ function formatarSinal(dados) {
     var total   = acertos + erros
     var taxa    = total > 0 ? Math.round(acertos / total * 100) : 0
     var mesa    = dados.mesa ? dados.mesa + '\n' : ''
+    var tipo    = detectarTipo(nome)
 
-    // Linha de placar reutilizável
     function placar() {
         return '📊 ✅ <b>' + acertos + '</b>  ❌ <b>' + erros + '</b>  📈 <b>' + taxa + '%</b>'
     }
 
-    // Cor do número na roda
     function corNum(n) {
         var num = parseInt(n)
         if (num === 0) return '🟢'
         return VERMELHOS.indexOf(num) !== -1 ? '🔴' : '⚫'
     }
 
+    // ── APOSTANDO ──────────────────────────────────────────────
     if (fase === 'apostando') {
-        var grupos = agruparNumerosRoda(numeros)
+        var grupos     = agruparNumerosRoda(numeros)
+        var totalNums  = numeros.length
+        var dica       = dicaSetor(nome)
 
-        // Monta linhas: cada grupo numa linha, números separados por · com cor
         var linhasGrupos = grupos.map(function(g) {
-            return g.map(function(n) {
-                return corNum(n) + '<b>' + n + '</b>'
-            }).join(' · ')
+            return g.map(function(n) { return corNum(n) + '<b>' + n + '</b>' }).join(' · ')
         }).join('\n')
 
-        // Total de números sem repetição
-        var totalNums = numeros.length
+        // SINAL (verde+fora): mostra disparador + confirmações do sinal
+        if (tipo.tipo === 'sinal') {
+            var dispNum = gatilho || nome.replace(/.*G(\d+).*/,'$1')
+            return mesa +
+                '🚀 <b>APOSTE AGORA!</b> ' + tipo.tag + '\n' +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                '🔵 ' + nome + '\n' +
+                '🎯 Disparador: <code>' + dispNum + '</code>  |  💰 ' + totalNums + ' números\n' +
+                '✅ Sinal verde+fora confirmado\n' +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                '<b>Alvos Principais + Ocultos:</b>\n' +
+                linhasGrupos + '\n' +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                placar()
+        }
 
-        var dica = dicaSetor(nome)
+        // CLÁSSICAS: mostra gatilho + dica da race track
+        if (tipo.tipo === 'classica') {
+            return mesa +
+                '🚀 <b>APOSTE AGORA!</b> ' + tipo.tag + '\n' +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                tipo.emoji + ' ' + nome + '\n' +
+                '🔑 Gatilho: <code>' + gatilho + '</code>  |  💰 ' + totalNums + ' números\n' +
+                (dica ? '👆 ' + dica.replace('👆 ','') + '\n' : '') +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                linhasGrupos + '\n' +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                placar()
+        }
 
-        // Detecta tipo de estratégia para cor/emoji
-        var nUp = nome.toUpperCase()
-        var tag = ''
-        if (nUp.indexOf('ELITE') !== -1)     tag = '[🔥 ELITE 2X]'
-        else if (nUp.indexOf('QUARTA') !== -1) tag = '[🌀 QUARTA DIM]'
-        else if (nUp.indexOf('RMULA') !== -1)  tag = '[⚡ FÓRMULA 5X]'
-        else if (nUp.indexOf('BLACK') !== -1)  tag = '[⬛ BLACK]'
-        else if (nUp.indexOf('QUADRANTE') !== -1) tag = '[◻️ QUADRANTES]'
-        else if (nUp.indexOf('SINAL') !== -1)  tag = '[🔵 SINAL]'
-        else if (nUp.indexOf('INVERT') !== -1) tag = '[🔄 INVERTIDOS]'
-        else if (nUp.indexOf('FIXO') !== -1)   tag = '[📌 FIXOS]'
-
+        // PDFs e outros: mostra nome + gatilho
         return mesa +
-            '🚀 <b>APOSTE AGORA!</b> ' + tag + '\n' +
+            '🚀 <b>APOSTE AGORA!</b>' + (tipo.tag ? ' ' + tipo.tag : '') + '\n' +
             '━━━━━━━━━━━━━━━━━━━━━\n' +
-            '🎯 ' + nome + '\n' +
+            tipo.emoji + ' ' + nome + '\n' +
             '🔑 Gatilho: <code>' + gatilho + '</code>  |  💰 ' + totalNums + ' números\n' +
-            (dica ? '👆 ' + dica.replace('👆 ', '') + '\n' : '') +
             '━━━━━━━━━━━━━━━━━━━━━\n' +
             linhasGrupos + '\n' +
             '━━━━━━━━━━━━━━━━━━━━━\n' +
             placar()
     }
 
+    // ── CONTANDO ──────────────────────────────────────────────
     if (fase === 'contando') {
+        // SINAL: mostra progresso verde+fora (não envia — aguarda confirmar)
+        // CLÁSSICAS: mostra gatilho detectado + aguardando neutro/tend
+        if (tipo.tipo === 'sinal') {
+            return ''  // Sinais só notificam quando confirmam (apostando)
+        }
+        if (tipo.tipo === 'classica') {
+            return mesa +
+                '🟠 <b>GATILHO DETECTADO!</b> ' + tipo.tag + '\n' +
+                '━━━━━━━━━━━━━━━━━━━━━\n' +
+                tipo.emoji + ' ' + nome + '\n' +
+                '🔑 Disparou: <code>' + gatilho + '</code>\n' +
+                '⏳ Aguardando neutro + tendência...'
+        }
+        // PDFs: gatilho detectado, entra no próximo
         return mesa +
-            '🟠 <b>GATILHO DETECTADO!</b>\n' +
-            '━━━━━━━━━━━━━━━━━━━━━\n' +
-            '🎯 ' + nome + '\n' +
+            '🟠 <b>GATILHO DETECTADO!</b>' + (tipo.tag ? ' ' + tipo.tag : '') + '\n' +
+            tipo.emoji + ' ' + nome + '\n' +
             '🔑 Disparou: <code>' + gatilho + '</code>\n' +
-            '⏳ Aguardando confirmação...'
+            '⚡ Próximo número = entrada'
     }
 
+    // ── GANHOU ──────────────────────────────────────────────
     if (fase === 'ganhou') {
-        var numBolinha = corNum(dados.numero || 0) + '<b>' + (dados.numero || '') + '</b>'
         return mesa +
-            '✅ <b>GANHOU!</b>  Número: ' + numBolinha + '\n' +
+            '✅ <b>GANHOU!</b>  ' + corNum(dados.numero||0) + '<b>' + (dados.numero||'') + '</b>\n' +
+            (nome ? '<i>' + nome + '</i>\n' : '') +
             placar()
     }
 
+    // ── PERDEU ──────────────────────────────────────────────
     if (fase === 'perdeu') {
-        var numBolinhaP = corNum(dados.numero || 0) + '<b>' + (dados.numero || '') + '</b>'
         return mesa +
-            '❌ <b>PERDEU!</b>  Número: ' + numBolinhaP + '\n' +
+            '❌ <b>PERDEU!</b>  ' + corNum(dados.numero||0) + '<b>' + (dados.numero||'') + '</b>\n' +
+            (nome ? '<i>' + nome + '</i>\n' : '') +
             placar()
     }
 
+    // ── GALE ──────────────────────────────────────────────
     if (fase === 'gale') {
-        var numBolinhaG = corNum(dados.numero || 0) + '<b>' + (dados.numero || '') + '</b>'
         return mesa +
-            '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: ' + numBolinhaG + '\n' +
-            '🔁 Mantendo aposta nos mesmos números'
+            '⚡ <b>GALE ' + (dados.gale||1) + '</b> — Saiu: ' +
+            corNum(dados.numero||0) + '<b>' + (dados.numero||'') + '</b>\n' +
+            '🔁 Mantendo aposta'
     }
 
     return ''
